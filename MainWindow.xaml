@@ -31,7 +31,7 @@
 
     <Canvas x:Name="OverlayCanvas" Background="{x:Null}">
 
-        <!-- Floating Target / Status Bubble (Hidden by default) -->
+        <!-- Floating Target / Status Bubble -->
         <Border x:Name="StatusBubble"
                 Canvas.Left="0" Canvas.Top="0"
                 Background="#EE232127"
@@ -57,7 +57,18 @@
                 MouseMove="CatRoot_MouseMove"
                 MouseLeftButtonUp="CatRoot_MouseLeftButtonUp">
 
-            <!-- Cat Transformation Group (Handles Flipping, Scaling & Jumping) -->
+            <!-- Context Menu for Fast Controls -->
+            <Canvas.ContextMenu>
+                <ContextMenu Background="#232127" Foreground="#F6F3E7" BorderBrush="#3A3840" Padding="4">
+                    <MenuItem Header="🐾 Toggle Style (Sprite Sheet / Vector)" Click="MenuToggleStyle_Click" Foreground="#F6F3E7" FontWeight="SemiBold"/>
+                    <MenuItem Header="⚡ Test Claw Swipe (Close Active Tab)" Click="MenuTestStrike_Click" Foreground="#FFE66D"/>
+                    <MenuItem Header="⏸️ Pause Detection (5 mins)" Click="MenuPauseDetection_Click" Foreground="#DDD"/>
+                    <Separator Background="#3A3840"/>
+                    <MenuItem Header="❌ Exit WorkCat" Click="MenuExit_Click" Foreground="#FF8888"/>
+                </ContextMenu>
+            </Canvas.ContextMenu>
+
+            <!-- Cat Transformation Group (Flipping, Scaling & Jumping) -->
             <Canvas.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform x:Name="CatScaleTransform" CenterX="65" CenterY="50" ScaleX="1" ScaleY="1" />
@@ -66,7 +77,7 @@
                 </TransformGroup>
             </Canvas.RenderTransform>
 
-            <!-- 1. Ground Shadow (Subtle #1A000000) -->
+            <!-- 1. Ground Shadow (#1A000000) -->
             <Ellipse x:Name="CatShadow"
                      Width="85" Height="14"
                      Canvas.Left="22" Canvas.Top="80"
@@ -77,117 +88,124 @@
                 </Ellipse.RenderTransform>
             </Ellipse>
 
-            <!-- 2. Animated Tail (Bobbing upright tail) -->
-            <Path x:Name="CatTail"
-                  Canvas.Left="12" Canvas.Top="24"
-                  Data="M 16,38 C 4,32 0,16 6,6 C 10,0 18,2 18,8 C 18,18 24,28 32,32 Z"
-                  Fill="#F6F3E7"
-                  RenderTransformOrigin="0.85, 0.95">
-                <Path.RenderTransform>
-                    <RotateTransform x:Name="TailRotateTransform" Angle="0" />
-                </Path.RenderTransform>
-            </Path>
+            <!-- Mode A: Sprite Sheet Frame Renderer -->
+            <Image x:Name="CatSpriteFrameImage"
+                   Width="120" Height="90"
+                   Canvas.Left="5" Canvas.Top="0"
+                   Visibility="Visible"
+                   Stretch="Uniform"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
 
-            <!-- 3. Rear Back Leg (Darker cream tint for depth) -->
-            <Path x:Name="LegBackLeft"
-                  Canvas.Left="34" Canvas.Top="62"
-                  Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
-                  Fill="#E9E5D4"
-                  RenderTransformOrigin="0.5, 0">
-                <Path.RenderTransform>
-                    <TransformGroup>
-                        <RotateTransform x:Name="LegBackLeftRotate" Angle="0" />
-                        <TranslateTransform x:Name="LegBackLeftTranslate" Y="0"/>
-                    </TransformGroup>
-                </Path.RenderTransform>
-            </Path>
-
-            <!-- 4. Front Back Leg (Darker cream tint) -->
-            <Path x:Name="LegFrontLeft"
-                  Canvas.Left="78" Canvas.Top="62"
-                  Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
-                  Fill="#E9E5D4"
-                  RenderTransformOrigin="0.5, 0">
-                <Path.RenderTransform>
-                    <TransformGroup>
-                        <RotateTransform x:Name="LegFrontLeftRotate" Angle="0" />
-                        <TranslateTransform x:Name="LegFrontLeftTranslate" Y="0"/>
-                    </TransformGroup>
-                </Path.RenderTransform>
-            </Path>
-
-            <!-- 5. Main Body & Head Composite (Off-white/cream #F6F3E7) -->
-            <!-- Chibi silhouette with smooth ears, chubby back, and rounded tummy -->
-            <Path x:Name="CatBody"
-                  Canvas.Left="20" Canvas.Top="15"
-                  Data="M 22,25 
-                        C 12,25 6,38 8,52 
-                        C 10,65 20,68 35,68 
-                        C 52,68 68,68 82,68 
-                        C 94,68 102,60 102,48 
-                        C 102,36 94,22 82,14 
-                        C 80,10 76,0 70,2 
-                        C 65,4 62,12 60,15 
-                        C 52,14 46,14 40,16 
-                        C 36,11 32,2 26,4 
-                        C 22,6 22,18 22,25 Z"
-                  Fill="#F6F3E7">
-                <Path.Effect>
-                    <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="#000000" Opacity="0.08" Direction="270"/>
-                </Path.Effect>
-            </Path>
-
-            <!-- 6. Fore Rear Leg (Foreground cream #F6F3E7) -->
-            <Path x:Name="LegBackRight"
-                  Canvas.Left="46" Canvas.Top="62"
-                  Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
-                  Fill="#F6F3E7"
-                  RenderTransformOrigin="0.5, 0">
-                <Path.RenderTransform>
-                    <TransformGroup>
-                        <RotateTransform x:Name="LegBackRightRotate" Angle="0" />
-                        <TranslateTransform x:Name="LegBackRightTranslate" Y="0"/>
-                    </TransformGroup>
-                </Path.RenderTransform>
-            </Path>
-
-            <!-- 7. Fore Front Leg / Striking Paw (Foreground cream #F6F3E7) -->
-            <Canvas x:Name="StrikingPawCanvas"
-                    Canvas.Left="90" Canvas.Top="60"
-                    Width="18" Height="24"
-                    RenderTransformOrigin="0.3, 0.1">
-                <Canvas.RenderTransform>
-                    <RotateTransform x:Name="StrikingPawTransform" Angle="0" />
-                </Canvas.RenderTransform>
-
-                <Path Data="M 0,0 C 2,14 4,20 10,20 C 16,20 16,14 14,0 Z"
-                      Fill="#F6F3E7" />
-                <!-- Subtle toe pad indent -->
-                <Ellipse Canvas.Left="4" Canvas.Top="13" Width="4" Height="3" Fill="#E5DFC9" Opacity="0.6"/>
-            </Canvas>
-
-            <!-- 8. Cute Face (Dark charcoal #232127 & 'ω' mouth) -->
-            <Canvas Canvas.Left="75" Canvas.Top="30" Width="36" Height="24">
-                <!-- Left Eye -->
-                <Ellipse Canvas.Left="6" Canvas.Top="6" Width="4.5" Height="5.5" Fill="#232127" />
-                <!-- Right Eye -->
-                <Ellipse Canvas.Left="22" Canvas.Top="6" Width="4.5" Height="5.5" Fill="#232127" />
+            <!-- Mode B: Procedural Vector Graphics Layer -->
+            <Canvas x:Name="CatVectorContainer" Width="130" Height="100" Visibility="Collapsed">
                 
-                <!-- Cute 'ω' mouth -->
-                <Path Canvas.Left="10" Canvas.Top="12"
-                      Data="M 0,0 Q 3,3.5 6,0.5 Q 9,3.5 12,0"
-                      Stroke="#232127"
-                      StrokeThickness="1.6"
-                      StrokeStartLineCap="Round"
-                      StrokeEndLineCap="Round"
-                      StrokeLineJoin="Round" />
+                <!-- Animated Tail -->
+                <Path x:Name="CatTail"
+                      Canvas.Left="12" Canvas.Top="24"
+                      Data="M 16,38 C 4,32 0,16 6,6 C 10,0 18,2 18,8 C 18,18 24,28 32,32 Z"
+                      Fill="#F6F3E7"
+                      RenderTransformOrigin="0.85, 0.95">
+                    <Path.RenderTransform>
+                        <RotateTransform x:Name="TailRotateTransform" Angle="0" />
+                    </Path.RenderTransform>
+                </Path>
 
-                <!-- Cute blush -->
-                <Ellipse Canvas.Left="2" Canvas.Top="11" Width="5" Height="3" Fill="#40FFAAAA" />
-                <Ellipse Canvas.Left="24" Canvas.Top="11" Width="5" Height="3" Fill="#40FFAAAA" />
+                <!-- Rear Back Leg -->
+                <Path x:Name="LegBackLeft"
+                      Canvas.Left="34" Canvas.Top="62"
+                      Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
+                      Fill="#E9E5D4"
+                      RenderTransformOrigin="0.5, 0">
+                    <Path.RenderTransform>
+                        <TransformGroup>
+                            <RotateTransform x:Name="LegBackLeftRotate" Angle="0" />
+                            <TranslateTransform x:Name="LegBackLeftTranslate" Y="0"/>
+                        </TransformGroup>
+                    </Path.RenderTransform>
+                </Path>
+
+                <!-- Front Back Leg -->
+                <Path x:Name="LegFrontLeft"
+                      Canvas.Left="78" Canvas.Top="62"
+                      Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
+                      Fill="#E9E5D4"
+                      RenderTransformOrigin="0.5, 0">
+                    <Path.RenderTransform>
+                        <TransformGroup>
+                            <RotateTransform x:Name="LegFrontLeftRotate" Angle="0" />
+                            <TranslateTransform x:Name="LegFrontLeftTranslate" Y="0"/>
+                        </TransformGroup>
+                    </Path.RenderTransform>
+                </Path>
+
+                <!-- Main Body & Head Composite -->
+                <Path x:Name="CatBody"
+                      Canvas.Left="20" Canvas.Top="15"
+                      Data="M 22,25 
+                            C 12,25 6,38 8,52 
+                            C 10,65 20,68 35,68 
+                            C 52,68 68,68 82,68 
+                            C 94,68 102,60 102,48 
+                            C 102,36 94,22 82,14 
+                            C 80,10 76,0 70,2 
+                            C 65,4 62,12 60,15 
+                            C 52,14 46,14 40,16 
+                            C 36,11 32,2 26,4 
+                            C 22,6 22,18 22,25 Z"
+                      Fill="#F6F3E7">
+                    <Path.Effect>
+                        <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="#000000" Opacity="0.08" Direction="270"/>
+                    </Path.Effect>
+                </Path>
+
+                <!-- Fore Rear Leg -->
+                <Path x:Name="LegBackRight"
+                      Canvas.Left="46" Canvas.Top="62"
+                      Data="M 0,0 C 2,12 2,18 8,18 C 14,18 14,12 12,0 Z"
+                      Fill="#F6F3E7"
+                      RenderTransformOrigin="0.5, 0">
+                    <Path.RenderTransform>
+                        <TransformGroup>
+                            <RotateTransform x:Name="LegBackRightRotate" Angle="0" />
+                            <TranslateTransform x:Name="LegBackRightTranslate" Y="0"/>
+                        </TransformGroup>
+                    </Path.RenderTransform>
+                </Path>
+
+                <!-- Fore Front Leg / Striking Paw -->
+                <Canvas x:Name="StrikingPawCanvas"
+                        Canvas.Left="90" Canvas.Top="60"
+                        Width="18" Height="24"
+                        RenderTransformOrigin="0.3, 0.1">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="StrikingPawTransform" Angle="0" />
+                    </Canvas.RenderTransform>
+
+                    <Path Data="M 0,0 C 2,14 4,20 10,20 C 16,20 16,14 14,0 Z"
+                          Fill="#F6F3E7" />
+                    <Ellipse Canvas.Left="4" Canvas.Top="13" Width="4" Height="3" Fill="#E5DFC9" Opacity="0.6"/>
+                </Canvas>
+
+                <!-- Cute Face -->
+                <Canvas Canvas.Left="75" Canvas.Top="30" Width="36" Height="24">
+                    <Ellipse Canvas.Left="6" Canvas.Top="6" Width="4.5" Height="5.5" Fill="#232127" />
+                    <Ellipse Canvas.Left="22" Canvas.Top="6" Width="4.5" Height="5.5" Fill="#232127" />
+                    
+                    <Path Canvas.Left="10" Canvas.Top="12"
+                          Data="M 0,0 Q 3,3.5 6,0.5 Q 9,3.5 12,0"
+                          Stroke="#232127"
+                          StrokeThickness="1.6"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round" />
+
+                    <Ellipse Canvas.Left="2" Canvas.Top="11" Width="5" Height="3" Fill="#40FFAAAA" />
+                    <Ellipse Canvas.Left="24" Canvas.Top="11" Width="5" Height="3" Fill="#40FFAAAA" />
+                </Canvas>
+
             </Canvas>
 
-            <!-- 9. Swipe Slash Particle Effect (Activated on Strike) -->
+            <!-- Swipe Slash Particle Effect (Activated on Strike) -->
             <Path x:Name="SlashEffect"
                   Canvas.Left="95" Canvas.Top="35"
                   Data="M 0,0 C 15,-10 25,5 30,25 C 20,18 10,12 0,0 Z"

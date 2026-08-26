@@ -17,3 +17,6 @@ C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\refint\WorkCat.dll
 C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\WorkCat.pdb
 C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\WorkCat.genruntimeconfig.cache
 C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\ref\WorkCat.dll
+C:\Users\Lenovo\Work cat\WorkCat\bin\Release\net8.0-windows\Assets\cat_spritesheet.jpg
+C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\WorkCat_Content.g.cs
+C:\Users\Lenovo\Work cat\WorkCat\obj\Release\net8.0-windows\WorkCat.sourcelink.json

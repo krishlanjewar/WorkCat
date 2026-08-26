@@ -18,8 +18,14 @@ namespace WorkCat
         Dragging
     }
 
+    public enum RenderingMode
+    {
+        SpriteSheet,
+        ProceduralVector
+    }
+
     /// <summary>
-    /// Implements the 60 FPS game loop, state machine, procedural animations, and navigation.
+    /// Implements the 60 FPS physics loop, finite state machine, sprite sheet frame playback, and navigation.
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -28,9 +34,11 @@ namespace WorkCat
         private readonly DispatcherTimer _gameTimer = new();
         private readonly DispatcherTimer _detectorTimer = new();
         private readonly DriftDetector _driftDetector = new();
+        private readonly SpriteSheetLoader _spriteLoader = new();
         private readonly Random _random = new();
 
         private CatState _state = CatState.Wandering;
+        private RenderingMode _renderMode = RenderingMode.SpriteSheet;
         private Storyboard? _pawSwipeStoryboard;
 
         // Position & Physics
@@ -40,7 +48,7 @@ namespace WorkCat
         private int _facingDirection = 1; // 1 = Right, -1 = Left
 
         // Movement Speeds (Pixels/sec)
-        private const double WalkSpeed = 100;
+        private const double WalkSpeed = 105;
         private const double SprintSpeed = 480;
         private const double StrikeReachDistance = 55;
 
@@ -55,7 +63,8 @@ namespace WorkCat
         // Timers & Time Tracking
         private double _totalElapsedSeconds = 0;
         private double _cooldownTimeRemaining = 0;
-        private Stopwatch _frameStopwatch = new();
+        private double _pauseDetectionTimeRemaining = 0;
+        private readonly Stopwatch _frameStopwatch = new();
 
         // Drag & Drop
         private bool _isDragging = false;
@@ -76,7 +85,6 @@ namespace WorkCat
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // Initialize Screen Boundaries
             _screenWidth = SystemParameters.PrimaryScreenWidth;
             _screenHeight = SystemParameters.PrimaryScreenHeight;
             _groundY = _screenHeight - 130;
@@ -86,6 +94,16 @@ namespace WorkCat
             UpdateCatCanvasPosition();
 
             _pawSwipeStoryboard = (Storyboard)Resources["PawSwipeStoryboard"];
+
+            // Load and slice Sprite Sheet
+            bool loaded = _spriteLoader.LoadAndSlice();
+            if (!loaded)
+            {
+                // Fallback to Procedural Vector if sprite asset is missing
+                _renderMode = RenderingMode.ProceduralVector;
+            }
+
+            ApplyRenderingMode();
 
             // 1. 60 FPS Render & Physics Loop (16.6 ms)
             _frameStopwatch.Start();
@@ -114,9 +132,13 @@ namespace WorkCat
             double deltaTime = _frameStopwatch.Elapsed.TotalSeconds;
             _frameStopwatch.Restart();
 
-            // Clamp delta time to avoid large jumps during window lag
             if (deltaTime > 0.1) deltaTime = 0.016;
             _totalElapsedSeconds += deltaTime;
+
+            if (_pauseDetectionTimeRemaining > 0)
+            {
+                _pauseDetectionTimeRemaining -= deltaTime;
+            }
 
             switch (_state)
             {
@@ -129,7 +151,7 @@ namespace WorkCat
                     break;
 
                 case CatState.Striking:
-                    // Animation handled by storyboard and async trigger
+                    // Handled asynchronously in ExecuteStrike
                     break;
 
                 case CatState.Cooldown:
@@ -137,7 +159,6 @@ namespace WorkCat
                     break;
 
                 case CatState.Dragging:
-                    // Position managed by MouseMove
                     break;
             }
 
@@ -153,7 +174,15 @@ namespace WorkCat
             if (_isIdling)
             {
                 _idleTimeRemaining -= dt;
-                ApplyIdleProceduralAnimation(_totalElapsedSeconds);
+
+                if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.WalkFrames.Count > 0)
+                {
+                    CatSpriteFrameImage.Source = _spriteLoader.WalkFrames[0];
+                }
+                else
+                {
+                    ApplyIdleProceduralAnimation(_totalElapsedSeconds);
+                }
 
                 if (_idleTimeRemaining <= 0)
                 {
@@ -179,13 +208,21 @@ namespace WorkCat
                     _facingDirection = -1;
                 }
 
-                // Smoothly return to ground baseline if previously airborne
+                // Smoothly return to ground baseline
                 if (Math.Abs(_posY - _groundY) > 2)
                 {
                     _posY += (_groundY - _posY) * 8 * dt;
                 }
 
-                ApplyWalkCycleProceduralAnimation(_totalElapsedSeconds, walkSpeedFactor: 1.0);
+                if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.WalkFrames.Count > 0)
+                {
+                    int frameIndex = (int)(_totalElapsedSeconds * 6.0) % _spriteLoader.WalkFrames.Count;
+                    CatSpriteFrameImage.Source = _spriteLoader.WalkFrames[frameIndex];
+                }
+                else
+                {
+                    ApplyWalkCycleProceduralAnimation(_totalElapsedSeconds, walkSpeedFactor: 1.0);
+                }
 
                 if (_walkTimeRemaining <= 0)
                 {
@@ -213,28 +250,31 @@ namespace WorkCat
             double dy = targetY - _posY;
             double distance = Math.Sqrt((dx * dx) + (dy * dy));
 
-            // Face towards the target
             _facingDirection = dx >= 0 ? 1 : -1;
             CatScaleTransform.ScaleX = _facingDirection;
 
             if (distance <= StrikeReachDistance)
             {
-                // Arrived at target: Execute Strike!
                 ExecuteStrike();
             }
             else
             {
-                // Rapid Sprint Towards Target
                 double dirX = dx / distance;
                 double dirY = dy / distance;
 
                 _posX += dirX * SprintSpeed * dt;
                 _posY += dirY * SprintSpeed * dt;
 
-                // High frequency run cycle
-                ApplyWalkCycleProceduralAnimation(_totalElapsedSeconds, walkSpeedFactor: 2.4);
+                if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.SprintFrames.Count > 0)
+                {
+                    int frameIndex = (int)(_totalElapsedSeconds * 12.0) % _spriteLoader.SprintFrames.Count;
+                    CatSpriteFrameImage.Source = _spriteLoader.SprintFrames[frameIndex];
+                }
+                else
+                {
+                    ApplyWalkCycleProceduralAnimation(_totalElapsedSeconds, walkSpeedFactor: 2.4);
+                }
 
-                // Update Status Bubble Position
                 Canvas.SetLeft(StatusBubble, Math.Max(20, Math.Min(_screenWidth - 180, _posX - 20)));
                 Canvas.SetTop(StatusBubble, Math.Max(20, _posY - 35));
             }
@@ -245,15 +285,25 @@ namespace WorkCat
             _state = CatState.Striking;
             StatusText.Text = "SWIPING ACTIVE TAB! 🐾";
 
-            // 1. Play Paw Swipe & Claw Slash Storyboard
+            // 1. Play Strike Visuals & Paw Swipe
             _pawSwipeStoryboard?.Begin();
+            CatTranslateTransform.Y = -14;
 
-            // 2. Small jump pounce
-            CatTranslateTransform.Y = -12;
+            // Frame sequence for sprite sheet
+            if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.StrikeFrames.Count >= 3)
+            {
+                CatSpriteFrameImage.Source = _spriteLoader.StrikeFrames[0];
+                await Task.Delay(70);
+                CatSpriteFrameImage.Source = _spriteLoader.StrikeFrames[1];
+                await Task.Delay(80);
+                CatSpriteFrameImage.Source = _spriteLoader.StrikeFrames[2];
+            }
+            else
+            {
+                await Task.Delay(150);
+            }
 
-            await Task.Delay(180);
-
-            // 3. Dispatch Synthetic Ctrl+W via Win32
+            // 2. Dispatch Synthetic Ctrl+W via Win32
             if (_currentTarget != null)
             {
                 Win32Helper.SendCtrlW(_currentTarget.Hwnd);
@@ -261,16 +311,15 @@ namespace WorkCat
 
             await Task.Delay(250);
 
-            // Reset jump
             CatTranslateTransform.Y = 0;
 
-            // 4. Enter Cooldown State
+            // 3. Cooldown grace period (4 seconds)
             _state = CatState.Cooldown;
-            _cooldownTimeRemaining = 4.0; // 4 second grace period
+            _cooldownTimeRemaining = 4.0;
             _currentTarget = null;
 
             StatusText.Text = "TAB CLOSED! RESTING 💤";
-            await Task.Delay(1000);
+            await Task.Delay(1200);
             HideStatusBubble();
         }
 
@@ -278,13 +327,19 @@ namespace WorkCat
         {
             _cooldownTimeRemaining -= dt;
 
-            // Smoothly gravitate back down to the ground baseline
             if (Math.Abs(_posY - _groundY) > 2)
             {
                 _posY += (_groundY - _posY) * 5 * dt;
             }
 
-            ApplyIdleProceduralAnimation(_totalElapsedSeconds * 0.7);
+            if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.WalkFrames.Count > 0)
+            {
+                CatSpriteFrameImage.Source = _spriteLoader.WalkFrames[0];
+            }
+            else
+            {
+                ApplyIdleProceduralAnimation(_totalElapsedSeconds * 0.7);
+            }
 
             if (_cooldownTimeRemaining <= 0)
             {
@@ -300,8 +355,7 @@ namespace WorkCat
 
         private async void DetectorLoop_Tick(object? sender, EventArgs e)
         {
-            // Only search for drift when wandering leisurely
-            if (_state != CatState.Wandering) return;
+            if (_state != CatState.Wandering || _pauseDetectionTimeRemaining > 0) return;
 
             try
             {
@@ -311,20 +365,34 @@ namespace WorkCat
                     _currentTarget = target;
                     _state = CatState.Hunting;
 
-                    // Display Alert
                     StatusText.Text = $"DRIFT DETECTED: {target.MatchedPattern}";
                     ShowStatusBubble();
                 }
             }
-            catch
-            {
-                // Ignore transient scanning errors
-            }
+            catch { }
         }
 
         #endregion
 
-        #region Procedural Animations
+        #region Procedural Animations & Render Modes
+
+        private void ApplyRenderingMode()
+        {
+            if (_renderMode == RenderingMode.SpriteSheet && _spriteLoader.IsLoaded)
+            {
+                CatSpriteFrameImage.Visibility = Visibility.Visible;
+                CatVectorContainer.Visibility = Visibility.Collapsed;
+                if (_spriteLoader.WalkFrames.Count > 0)
+                {
+                    CatSpriteFrameImage.Source = _spriteLoader.WalkFrames[0];
+                }
+            }
+            else
+            {
+                CatSpriteFrameImage.Visibility = Visibility.Collapsed;
+                CatVectorContainer.Visibility = Visibility.Visible;
+            }
+        }
 
         private void ApplyWalkCycleProceduralAnimation(double time, double walkSpeedFactor)
         {
@@ -334,13 +402,11 @@ namespace WorkCat
             double phase1 = Math.Sin(time * frequency);
             double phase2 = Math.Sin((time * frequency) + Math.PI);
 
-            // Alternating 4-leg walk cycle
             LegBackLeftRotate.Angle = phase1 * legSwingAngle;
             LegBackRightRotate.Angle = phase2 * legSwingAngle;
             LegFrontLeftRotate.Angle = phase2 * legSwingAngle;
             StrikingPawTransform.Angle = phase1 * (legSwingAngle * 0.8);
 
-            // Subtle body bounce & tail sway
             CatTranslateTransform.Y = -Math.Abs(phase1) * (3.5 * walkSpeedFactor);
             TailRotateTransform.Angle = Math.Sin(time * 8.0) * 18.0;
             ShadowScaleTransform.ScaleX = 1.0 - (Math.Abs(phase1) * 0.15);
@@ -348,7 +414,6 @@ namespace WorkCat
 
         private void ApplyIdleProceduralAnimation(double time)
         {
-            // Reset legs
             LegBackLeftRotate.Angle = 0;
             LegBackRightRotate.Angle = 0;
             LegFrontLeftRotate.Angle = 0;
@@ -356,7 +421,6 @@ namespace WorkCat
             CatTranslateTransform.Y = 0;
             ShadowScaleTransform.ScaleX = 1.0;
 
-            // Gentle tail breathing & sway
             TailRotateTransform.Angle = Math.Sin(time * 2.5) * 14.0;
         }
 
@@ -386,7 +450,7 @@ namespace WorkCat
             _state = CatState.Dragging;
             CatRoot.CaptureMouse();
             _dragOffset = e.GetPosition(CatRoot);
-            CatScaleTransform.ScaleY = 1.1; // Cute stretch effect while picked up
+            CatScaleTransform.ScaleY = 1.1;
         }
 
         private void CatRoot_MouseMove(object sender, MouseEventArgs e)
@@ -397,7 +461,6 @@ namespace WorkCat
                 _posX = screenPos.X - _dragOffset.X;
                 _posY = screenPos.Y - _dragOffset.Y;
 
-                // Clamp within screen
                 _posX = Math.Max(10, Math.Min(_screenWidth - 140, _posX));
                 _posY = Math.Max(10, Math.Min(_screenHeight - 110, _posY));
 
@@ -413,12 +476,53 @@ namespace WorkCat
                 CatRoot.ReleaseMouseCapture();
                 CatScaleTransform.ScaleY = 1.0;
 
-                // Set new ground baseline if dropped near bottom half, otherwise cat drops down
                 _groundY = Math.Max(_screenHeight - 180, _posY);
                 _state = CatState.Wandering;
                 _isIdling = true;
                 _idleTimeRemaining = 1.5;
             }
+        }
+
+        #endregion
+
+        #region Context Menu Handlers
+
+        private void MenuToggleStyle_Click(object sender, RoutedEventArgs e)
+        {
+            _renderMode = _renderMode == RenderingMode.SpriteSheet ? RenderingMode.ProceduralVector : RenderingMode.SpriteSheet;
+            ApplyRenderingMode();
+        }
+
+        private void MenuTestStrike_Click(object sender, RoutedEventArgs e)
+        {
+            IntPtr fg = Win32Helper.GetForegroundWindow();
+            if (fg != IntPtr.Zero && Win32Helper.GetWindowRect(fg, out Win32Helper.RECT rect))
+            {
+                _currentTarget = new DriftTarget
+                {
+                    Hwnd = fg,
+                    Title = Win32Helper.GetWindowTitle(fg),
+                    MatchedPattern = "Manual Strike Test",
+                    WindowRect = rect,
+                    StrikePoint = new Point(rect.CenterX, rect.Top + 50)
+                };
+                _state = CatState.Hunting;
+                StatusText.Text = "MANUAL STRIKE TRIGGERED! 🎯";
+                ShowStatusBubble();
+            }
+        }
+
+        private void MenuPauseDetection_Click(object sender, RoutedEventArgs e)
+        {
+            _pauseDetectionTimeRemaining = 300; // 5 minutes
+            StatusText.Text = "DETECTION PAUSED (5 MIN)";
+            ShowStatusBubble();
+            Task.Delay(2000).ContinueWith(_ => Dispatcher.Invoke(HideStatusBubble));
+        }
+
+        private void MenuExit_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
         }
 
         #endregion
