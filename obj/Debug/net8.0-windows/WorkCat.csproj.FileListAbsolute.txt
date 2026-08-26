@@ -7,3 +7,14 @@ C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.GeneratedMSBui
 C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.AssemblyInfoInputs.cache
 C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.AssemblyInfo.cs
 C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.csproj.CoreCompileInputs.cache
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\WorkCat.exe
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\WorkCat.deps.json
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\WorkCat.runtimeconfig.json
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\WorkCat.dll
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\WorkCat.pdb
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.sourcelink.json
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.dll
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\refint\WorkCat.dll
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.pdb
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.genruntimeconfig.cache
+C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\ref\WorkCat.dll
