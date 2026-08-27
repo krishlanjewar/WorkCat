@@ -199,6 +199,8 @@
                     <MenuItem Header="⚡ Test Raptor Dive Strike" Click="MenuTestStrike_Click" Foreground="#FFE66D"/>
                     <MenuItem Header="⏸️ Pause Detection (5 mins)" Click="MenuPauseDetection_Click" Foreground="#DDD"/>
                     <Separator Background="#3A3840"/>
+                    <MenuItem x:Name="MenuEagleStartup" Header="🚀 Run at Windows Startup" IsCheckable="True" Click="MenuStartup_Click" Foreground="#FFF"/>
+                    <Separator Background="#3A3840"/>
                     <MenuItem Header="❌ Exit" Click="MenuExit_Click" Foreground="#FF8888"/>
                 </ContextMenu>
             </Canvas.ContextMenu>

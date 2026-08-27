@@ -162,6 +162,7 @@ namespace WorkCat
 
             UpdatePetVisibility();
             ApplyCatRenderingMode();
+            UpdateStartupMenuCheckmarks();
 
             // Start 60 FPS Game Loop
             _frameStopwatch.Start();
@@ -1150,6 +1151,63 @@ namespace WorkCat
             StatusText.Text = "DETECTION PAUSED (5 MIN)";
             ShowStatusBubble();
             Task.Delay(2000).ContinueWith(_ => Dispatcher.Invoke(HideStatusBubble));
+        }
+
+        private void MenuStartup_Click(object sender, RoutedEventArgs e)
+        {
+            bool current = IsStartupEnabled();
+            bool newState = !current;
+            SetStartup(newState);
+            UpdateStartupMenuCheckmarks();
+
+            StatusEmoji.Text = "🚀 ";
+            StatusText.Text = newState ? "AUTO-START ENABLED!" : "AUTO-START DISABLED!";
+            ShowStatusBubble();
+            Task.Delay(2000).ContinueWith(_ => Dispatcher.Invoke(HideStatusBubble));
+        }
+
+        private void UpdateStartupMenuCheckmarks()
+        {
+            bool isEnabled = IsStartupEnabled();
+            MenuCatStartup.IsChecked = isEnabled;
+            MenuEagleStartup.IsChecked = isEnabled;
+        }
+
+        private static bool IsStartupEnabled()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
+                return key?.GetValue("WorkCat") != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void SetStartup(bool enable)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                if (key == null) return;
+
+                if (enable)
+                {
+                    string exePath = Process.GetCurrentProcess().MainModule?.FileName 
+                        ?? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WorkCat.exe");
+                    key.SetValue("WorkCat", $"\"{exePath}\"");
+                }
+                else
+                {
+                    key.DeleteValue("WorkCat", false);
+                }
+            }
+            catch
+            {
+                // Ignore permissions
+            }
         }
 
         private void MenuExit_Click(object sender, RoutedEventArgs e)
