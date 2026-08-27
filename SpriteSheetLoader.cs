@@ -8,13 +8,14 @@ using System.Windows.Media.Imaging;
 namespace WorkCat
 {
     /// <summary>
-    /// Loads, chroma-keys background transparency, and slices the cat sprite sheet into animation frames.
+    /// Loads, chroma-keys background transparency, and auto-detects sprite bounding boxes
+    /// to eliminate cut-off tails, legs, or adjacent frame bleed.
     /// </summary>
     public class SpriteSheetLoader
     {
-        public List<CroppedBitmap> WalkFrames { get; } = new();
-        public List<CroppedBitmap> SprintFrames { get; } = new();
-        public List<CroppedBitmap> StrikeFrames { get; } = new();
+        public List<BitmapSource> WalkFrames { get; } = new();
+        public List<BitmapSource> SprintFrames { get; } = new();
+        public List<BitmapSource> StrikeFrames { get; } = new();
 
         public bool IsLoaded => WalkFrames.Count > 0;
 
@@ -25,7 +26,6 @@ namespace WorkCat
                 string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relativePath);
                 if (!File.Exists(fullPath))
                 {
-                    // Check direct directory
                     fullPath = Path.GetFullPath(relativePath);
                     if (!File.Exists(fullPath)) return false;
                 }
@@ -38,12 +38,11 @@ namespace WorkCat
                 rawBitmap.EndInit();
                 rawBitmap.Freeze();
 
-                // Process chroma-key transparency (Remove dark background)
                 var transparentBitmap = MakeBackgroundTransparent(rawBitmap);
                 transparentBitmap.Freeze();
 
-                SliceFrames(transparentBitmap);
-                return true;
+                SliceFramesWithAutoBoundingBoxes(transparentBitmap);
+                return WalkFrames.Count > 0;
             }
             catch
             {
@@ -71,13 +70,10 @@ namespace WorkCat
                 byte g = pixelData[i + 1];
                 byte r = pixelData[i + 2];
 
-                // Compute color distance to background
                 int dr = r - bgR;
                 int dg = g - bgG;
                 int db = b - bgB;
                 double dist = Math.Sqrt((dr * dr) + (dg * dg) + (db * db));
-
-                // Brightness / cream detection: Cat body is cream (#F6F3E7)
                 int luminance = (r * 299 + g * 587 + b * 114) / 1000;
 
                 if (dist < 42 || luminance < 65)
@@ -86,7 +82,6 @@ namespace WorkCat
                 }
                 else if (dist < 60)
                 {
-                    // Smooth edge antialiasing
                     double alphaFactor = (dist - 42.0) / 18.0;
                     pixelData[i + 3] = (byte)(255 * Math.Clamp(alphaFactor, 0.0, 1.0));
                 }
@@ -101,58 +96,113 @@ namespace WorkCat
             return writeable;
         }
 
-        private void SliceFrames(BitmapSource source)
+        private void SliceFramesWithAutoBoundingBoxes(BitmapSource source)
         {
             WalkFrames.Clear();
             SprintFrames.Clear();
             StrikeFrames.Clear();
 
-            int w = source.PixelWidth;
-            int h = source.PixelHeight;
+            int width = source.PixelWidth;
+            int height = source.PixelHeight;
+            int stride = width * 4;
+            byte[] pixelData = new byte[height * stride];
+            source.CopyPixels(pixelData, stride, 0);
 
-            // Grid bounds based on generated sprite sheet layout:
-            // 3 rows, 4 main horizontal sectors
-            int cellW = w / 4;
-            int cellH = h / 3;
+            bool[,] fg = new bool[width, height];
+            for (int y = 0; y < height; y++)
+            {
+                int rowOffset = y * stride;
+                for (int x = 0; x < width; x++)
+                {
+                    byte a = pixelData[rowOffset + (x * 4) + 3];
+                    fg[x, y] = a > 40;
+                }
+            }
 
-            // Slicing Walk Cycle (Col 0 and Col 1 across rows)
-            // Frame 1: Row 0, Col 0
-            WalkFrames.Add(CreateFrame(source, 0 * cellW, 0 * cellH, cellW, cellH));
-            // Frame 2: Row 0, Col 1
-            WalkFrames.Add(CreateFrame(source, 1 * cellW, 0 * cellH, cellW, cellH));
-            // Frame 3: Row 1, Col 0
-            WalkFrames.Add(CreateFrame(source, 0 * cellW, 1 * cellH, cellW, cellH));
-            // Frame 4: Row 1, Col 1
-            WalkFrames.Add(CreateFrame(source, 1 * cellW, 1 * cellH, cellW, cellH));
+            int rows = 3;
+            int cols = 4;
+            int cellW = width / cols;
+            int cellH = height / rows;
 
-            // Slicing Sprint Cycle (Col 2 and Col 3 across row 0 and 1)
-            SprintFrames.Add(CreateFrame(source, 2 * cellW, 0 * cellH, cellW, cellH));
-            SprintFrames.Add(CreateFrame(source, 3 * cellW, 0 * cellH, cellW, cellH));
-            SprintFrames.Add(CreateFrame(source, 2 * cellW, 1 * cellH, cellW, cellH));
-            SprintFrames.Add(CreateFrame(source, 3 * cellW, 1 * cellH, cellW, cellH));
+            // Crop and clean Walk frames (Cols 0-1)
+            WalkFrames.Add(ExtractCenteredFrame(source, fg, 0 * cellW, 0 * cellH, cellW, cellH));
+            WalkFrames.Add(ExtractCenteredFrame(source, fg, 1 * cellW, 0 * cellH, cellW, cellH));
+            WalkFrames.Add(ExtractCenteredFrame(source, fg, 0 * cellW, 1 * cellH, cellW, cellH));
+            WalkFrames.Add(ExtractCenteredFrame(source, fg, 1 * cellW, 1 * cellH, cellW, cellH));
 
-            // Slicing Strike Swipe Cycle (Row 2, Right side 3 frames)
-            int strikeColW = (w / 2) / 3;
-            int strikeStartX = w / 2;
-            StrikeFrames.Add(CreateFrame(source, strikeStartX + (0 * strikeColW), 2 * cellH, strikeColW, cellH));
-            StrikeFrames.Add(CreateFrame(source, strikeStartX + (1 * strikeColW), 2 * cellH, strikeColW, cellH));
-            StrikeFrames.Add(CreateFrame(source, strikeStartX + (2 * strikeColW), 2 * cellH, strikeColW, cellH));
+            // Sprint frames (Cols 2-3)
+            SprintFrames.Add(ExtractCenteredFrame(source, fg, 2 * cellW, 0 * cellH, cellW, cellH));
+            SprintFrames.Add(ExtractCenteredFrame(source, fg, 3 * cellW, 0 * cellH, cellW, cellH));
+            SprintFrames.Add(ExtractCenteredFrame(source, fg, 2 * cellW, 1 * cellH, cellW, cellH));
+            SprintFrames.Add(ExtractCenteredFrame(source, fg, 3 * cellW, 1 * cellH, cellW, cellH));
+
+            // Strike frames (Row 2, right 3 frames)
+            int strikeColW = (width / 2) / 3;
+            int strikeStartX = width / 2;
+            StrikeFrames.Add(ExtractCenteredFrame(source, fg, strikeStartX + (0 * strikeColW), 2 * cellH, strikeColW, cellH));
+            StrikeFrames.Add(ExtractCenteredFrame(source, fg, strikeStartX + (1 * strikeColW), 2 * cellH, strikeColW, cellH));
+            StrikeFrames.Add(ExtractCenteredFrame(source, fg, strikeStartX + (2 * strikeColW), 2 * cellH, strikeColW, cellH));
         }
 
-        private static CroppedBitmap CreateFrame(BitmapSource source, int x, int y, int width, int height)
+        private static BitmapSource ExtractCenteredFrame(BitmapSource source, bool[,] fg, int startX, int startY, int w, int h)
         {
-            // Pad inner margin slightly to avoid neighboring sprite bleed
-            int padX = (int)(width * 0.04);
-            int padY = (int)(height * 0.04);
+            int minX = int.MaxValue, maxX = int.MinValue;
+            int minY = int.MaxValue, maxY = int.MinValue;
+            int fgCount = 0;
 
-            int finalX = Math.Max(0, x + padX);
-            int finalY = Math.Max(0, y + padY);
-            int finalW = Math.Min(source.PixelWidth - finalX, width - (padX * 2));
-            int finalH = Math.Min(source.PixelHeight - finalY, height - (padY * 2));
+            int endX = Math.Min(source.PixelWidth - 1, startX + w);
+            int endY = Math.Min(source.PixelHeight - 1, startY + h);
 
-            var cropped = new CroppedBitmap(source, new Int32Rect(finalX, finalY, finalW, finalH));
-            cropped.Freeze();
-            return cropped;
+            for (int y = startY; y <= endY; y++)
+            {
+                for (int x = startX; x <= endX; x++)
+                {
+                    if (fg[x, y])
+                    {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                        fgCount++;
+                    }
+                }
+            }
+
+            const int canvasSize = 130;
+            var rtb = new RenderTargetBitmap(canvasSize, canvasSize, 96, 96, PixelFormats.Pbgra32);
+            var dv = new DrawingVisual();
+
+            if (fgCount > 50 && minX <= maxX && minY <= maxY)
+            {
+                int pad = 3;
+                int cropX = Math.Max(0, minX - pad);
+                int cropY = Math.Max(0, minY - pad);
+                int cropW = Math.Min(source.PixelWidth - cropX, (maxX - minX + 1) + (pad * 2));
+                int cropH = Math.Min(source.PixelHeight - cropY, (maxY - minY + 1) + (pad * 2));
+
+                var cropped = new CroppedBitmap(source, new Int32Rect(cropX, cropY, cropW, cropH));
+                using (var dc = dv.RenderOpen())
+                {
+                    double drawW = cropW;
+                    double drawH = cropH;
+
+                    double maxDim = canvasSize - 16;
+                    if (drawW > maxDim || drawH > maxDim)
+                    {
+                        double scale = Math.Min(maxDim / drawW, maxDim / drawH);
+                        drawW *= scale;
+                        drawH *= scale;
+                    }
+
+                    double drawX = (canvasSize - drawW) / 2.0;
+                    double drawY = (canvasSize - 16) - drawH; // Feet alignment
+                    dc.DrawImage(cropped, new Rect(drawX, drawY, drawW, drawH));
+                }
+            }
+
+            rtb.Render(dv);
+            rtb.Freeze();
+            return rtb;
         }
     }
 }

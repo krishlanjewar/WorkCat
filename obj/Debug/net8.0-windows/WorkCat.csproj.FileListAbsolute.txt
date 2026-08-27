@@ -20,3 +20,6 @@ C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat.genruntimeconf
 C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\ref\WorkCat.dll
 C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\Assets\cat_spritesheet.jpg
 C:\Users\Lenovo\Work cat\WorkCat\obj\Debug\net8.0-windows\WorkCat_Content.g.cs
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\Assets\eagle_spritesheet.png
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\Assets\image.png
+C:\Users\Lenovo\Work cat\WorkCat\bin\Debug\net8.0-windows\Assets\m.png

@@ -8,5 +8,8 @@
 //------------------------------------------------------------------------------
 
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/cat_spritesheet.jpg")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/eagle_spritesheet.png")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/image.png")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("assets/m.png")]
 
 
