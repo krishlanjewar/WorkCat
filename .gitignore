@@ -1,0 +1,21 @@
+# Build and Publish Outputs
+bin/
+obj/
+publish/
+WorkCat_ReadyToSend/
+*.exe
+*.dll
+*.pdb
+
+# Visual Studio / IDE Files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Windows OS Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
